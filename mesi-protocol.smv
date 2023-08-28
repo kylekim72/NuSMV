@@ -1,0 +1,181 @@
+MODULE mesi(incoming_from_bus, now_shared) -- Task list: 1. M_to_I(with wr test)
+VAR
+  cpu_input : {cpu_rd, cpu_wr, none}; -- check task done...(with status) to prvent conflict
+  bus_master : boolean;
+  task_done : boolean;
+  bus_request : {bus_rd, bus_rdx, none}; -- need upgrade?
+  state: {modified, exclusive, shared, invalid, pend_rd_I, pend_wr_I, pend_wr_S, pend_wr_M, pend_rd_M
+  ,I_to_SE, M_to_I, E_to_ES, I_to_M, S_to_M, E_to_M}; --need pend_inv_(), pend_sh_()?
+  output_to_bus: {bus_rd, bus_rdx, none};
+ASSIGN
+  init(state) := invalid;
+  next(state) := case
+        (cpu_input = cpu_rd) : 
+        case
+        state = invalid : I_to_SE; -- trans
+        state = shared : shared;
+        state = exclusive : E_to_ES; -- trans
+        state = modified : modified;
+        TRUE : state;
+        esac;
+
+        (cpu_input = cpu_wr) :
+        case
+        state = invalid : I_to_M;
+        state = shared : S_to_M;
+        state = exclusive : E_to_M;
+        state = modified : modified;
+        TRUE : state;
+        esac;
+
+        (incoming_from_bus) = bus_rd : 
+        case
+        state = invalid & now_shared : shared;
+        state = invalid & !now_shared : shared;
+        state = shared : shared;
+        state = exclusive : shared;
+        state = modified : shared;
+        TRUE : state;
+        esac;
+
+        (incoming_from_bus) = bus_rdx : 
+        case
+        state = invalid : invalid;
+        state = shared : invalid;
+        state = exclusive : invalid;
+        state = modified : invalid;
+        TRUE : state;
+        esac;
+
+        state = I_to_M : modified; -- need more
+        state = M_to_I : invalid;
+
+       TRUE : state;
+		 esac;
+
+-- From here, bus action
+
+
+-- Output to bus(need writeback? and now, no ackowledge check.  check it later)
+  init(output_to_bus) := none;
+  next(output_to_bus) := case
+      cpu_input = cpu_rd :
+      case
+      state = invalid : bus_rd;
+		  state = shared : bus_rd;
+      state = exclusive : bus_rd;
+		  state = modified : bus_rd;
+      state = I_to_SE : bus_rd;
+      state = E_to_ES : bus_rd;
+		  TRUE : none;
+      esac;
+
+      cpu_input = cpu_wr :
+      case
+      state = modified : bus_rdx;
+      state = exclusive : bus_rdx;
+      state = shared : bus_rdx;
+      state = invalid : bus_rdx;
+      TRUE : none;
+      esac;
+
+      TRUE : none;
+      esac;
+
+--MODULE bus-device(bus_cmd,cpu_input)
+--VAR
+  --all_done: boolean; -- not yet written
+--  bus_request: {bus_rd, bus_rdx, none};
+--  bus_master : boolean;
+  --c : mesi(none, bus_master, bus_request);
+--  c : mesi(cpu_input, bus_request);
+--ASSIGN
+  --init(bus_request) := none;
+  --next(bus_request) := case
+    --c.state = pend_rd_I : bus_rd;
+    --c.state = pend_wr_I : bus_rdx;
+    --c.state = pend_wr_S : bus_rdx;
+    --c.state = pend_rd_M : bus_rd;
+    --TRUE : bus_request;
+    --esac;
+  --next(bus_request) := case
+  --c.state = modified : bus_rdx;
+
+MODULE main
+VAR
+  now_shared : boolean;
+  bus_request : {bus_rd, bus_rdx, none};
+  --bus: bus-device(bus_request,cpu_input);
+  c0: mesi(bus_request, now_shared);
+  c1: mesi(bus_request, now_shared);
+  oracle: {0, 1};
+ASSIGN
+  init(oracle) := 0;
+  next(oracle) := case
+  TRUE : {0,1};
+  esac;
+  init(c0.bus_master) := TRUE;
+  next(c0.bus_master) := case
+  oracle = 0 : TRUE;
+  TRUE : FALSE;
+  esac;
+  init(c1.bus_master) := FALSE;
+  next(c1.bus_master) := case
+  oracle = 1 : TRUE;
+  TRUE : FALSE;
+  esac;
+  init(c0.cpu_input) := none;
+  next(c0.cpu_input) := case
+	(c0.bus_master) & (c1.task_done) & (c0.task_done) & (c0.bus_request = none) : cpu_wr;
+  TRUE : none;
+		esac;
+  init(c1.cpu_input) := none;
+  next(c1.cpu_input) := case
+	(c1.bus_master) & (c0.task_done) & (c1.task_done) & (c1.bus_request = none) : cpu_wr;
+  TRUE : none;
+		esac;
+  init(c0.bus_request) := none;
+  next(c0.bus_request) := case
+    c1.cpu_input = cpu_rd : bus_rd;
+    c1.cpu_input = cpu_wr : bus_rdx;
+    TRUE : none;
+    esac;
+  init(c1.bus_request) := none;
+  next(c1.bus_request) := case
+    c0.cpu_input = cpu_rd : bus_rd;
+    c0.cpu_input = cpu_wr : bus_rdx;
+    TRUE : none;
+    esac;
+  init(now_shared) := FALSE;
+  next(now_shared) := case
+    c0.state = exclusive | c0.state = shared | c0.state = modified | c1.state = exclusive | c1.state = shared | c1.state = modified : TRUE;
+    TRUE : FALSE;
+    esac;
+  init(c0.task_done) := TRUE;
+  next(c0.task_done) := case
+    c0.cpu_input = cpu_rd | c0.cpu_input = cpu_wr : FALSE;
+    c0.state = I_to_M | c0.state = I_to_SE | c0.state = M_to_I | c0.state = E_to_ES : FALSE;
+    c1.output_to_bus = bus_rd | c1.output_to_bus = bus_rdx : FALSE;
+    TRUE : TRUE;
+  esac;
+  init(c1.task_done) := TRUE;
+  next(c1.task_done) := case
+    c1.cpu_input = cpu_rd | c1.cpu_input = cpu_wr : FALSE;
+    c1.state = I_to_M | c1.state = I_to_SE | c1.state = M_to_I | c1.state = E_to_ES : FALSE;
+    c0.output_to_bus = bus_rd | c0.output_to_bus = bus_rdx : FALSE;
+    TRUE : TRUE;
+  esac;
+  
+    
+
+
+  SPEC AG(EF!(c0.state = modified & c1.state = modified))
+  SPEC AG(EF!(c0.state = modified & c1.state = exclusive))
+  SPEC AG(EF!(c0.state = modified & c1.state = shared))
+  SPEC AG(EF!(c0.state = exclusive & c1.state = modified))
+  SPEC AG(EF!(c0.state = shared & c1.state = modified))
+  SPEC AG(EF!(c0.state = exclusive & c1.state = shared))
+  SPEC AG(EF!(c0.state = shared & c1.state = exclusive))
+  SPEC AG(EF!(c0.state = exclusive & c1.state = exclusive))
+  
+	   

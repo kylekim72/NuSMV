@@ -1,0 +1,223 @@
+MODULE main -- Task list: 1. add all_done in bus(check write) 
+VAR
+    cpu_op1234: {rd1, wr1, rd2, wr2, rd3, wr3, none};
+    -- cpu_op1234: {rd1, wr1, rd2, wr2, rd3, wr3, rd4, wr4};
+    cache1 : {state_M, state_E, state_S, state_I, tr_S2M, tr_I2M, tr_I2SE, tr_E2M};
+    cache2 : {state_M, state_E, state_S, state_I, tr_S2M, tr_I2M, tr_I2SE, tr_E2M};
+    cache3 : {state_M, state_E, state_S, state_I, tr_S2M, tr_I2M, tr_I2SE, tr_E2M};
+    -- cache4 : {state_M, state_E, state_S, state_I, tr_S2M, tr_I2M, tr_I2SE, tr_E2M};
+    bus: {rd, rdx, upgrade, flush, all_done, none};
+    done1: boolean;
+    done2: boolean;
+    done3 : boolean;
+    -- done4 : boolean;
+    --now_shared : boolean; -- need for exclusive check? --> This variable will be deleted
+
+ASSIGN
+    init(cpu_op1234) := none;
+    next(cpu_op1234) := case
+        !(cpu_op1234 = none) : none;
+        done1 & done2 & done3 & (cpu_op1234 = none) & (bus = none): {rd1, wr1, rd2, wr2, rd3, wr3};
+        TRUE: cpu_op1234;
+    esac;
+    
+    init(cache1) := state_I;
+    next(cache1) := case
+    cache1 = state_I & cpu_op1234 = rd1 : tr_I2SE; -- check E
+    cache1 = tr_I2SE & bus = all_done : state_E;
+    cache1 = tr_I2SE & bus = flush : state_S;
+
+    cache1 = state_I & cpu_op1234 = wr1 : tr_I2M; -- upgrade?
+    cache1 = tr_I2M & bus = all_done : state_M;
+
+    cache1 = state_S & cpu_op1234 = rd1 : state_S;
+    
+    cache1 = state_S & cpu_op1234 = wr1 : tr_S2M; -- upgrade?
+    cache1 = tr_S2M & bus = all_done : state_M;
+
+    cache1 = state_E & bus = rd & !(done1) : state_E; -- rd hit, done self check
+    cache1 = state_E & cpu_op1234 = wr1 : tr_E2M; -- upgrade?
+    cache1 = tr_E2M & bus = all_done : state_M;
+
+    cache1 = state_M & cpu_op1234 = rd1 : state_M;
+    --cache1 = state_M & cpu_op1234 = wr1 : state_M; -- hit
+    cache1 = state_M & bus = rdx & !(done1) : state_M; -- wr hit, done self check
+    cache1 = state_M & bus = rd & !(done1) : state_M; -- rd hit, done self check
+
+    --**********************************************
+
+    -- From here, state transition by bus action
+
+    --cache1 = state_I & cache2 = state_I & bus = rd : state_I; -- need exclusive check
+    --cache1 = state_I & cache2 = state_S & bus = rd : state_S; -- need exclusive check
+    cache1 = state_E & bus = rd : state_S; 
+    cache1 = state_S & bus = rd : state_S;
+    cache1 = state_M & bus = rd : state_S; 
+
+    cache1 = state_I & bus = rdx : state_I; 
+    cache1 = state_S & bus = rdx : state_I; 
+    cache1 = state_E & bus = rdx : state_I; 
+    cache1 = state_M & bus = rdx : state_I; 
+    
+    TRUE : cache1;
+    esac;
+    
+    init(cache2) := state_I;
+    next(cache2) := case
+    cache2 = state_I & cpu_op1234 = rd2 : tr_I2SE; -- check E
+    cache2 = tr_I2SE & bus = all_done : state_E;
+    cache2 = tr_I2SE & bus = flush : state_S;
+
+    cache2 = state_I & cpu_op1234 = wr2 : tr_I2M; -- upgrade?
+    cache2 = tr_I2M & bus = all_done : state_M;
+
+    cache2 = state_S & cpu_op1234 = rd2 : state_S;
+    
+    cache2 = state_S & cpu_op1234 = wr2 : tr_S2M; -- upgrade?
+    cache2 = tr_S2M & bus = all_done : state_M;
+
+    cache2 = state_E & bus = rd & !(done2) : state_E; -- rd hit, done self check
+    cache2 = state_E & cpu_op1234 = wr2 : tr_E2M; -- upgrade?
+    cache2 = tr_E2M & bus = all_done : state_M;
+
+    cache2 = state_M & cpu_op1234 = rd2 : state_M;
+    --cache2 = state_M & cpu_op1234 = wr2 : state_M; -- hit
+    cache2 = state_M & bus = rdx & !(done2) : state_M; -- wr hit, done self check
+    cache2 = state_M & bus = rd & !(done2) : state_M; -- rd hit, done self check
+
+    --**********************************************
+
+    -- From here, state transition by bus action
+
+    --cache2 = state_I & cache2 = state_I & bus = rd : state_I; -- need exclusive check
+    --cache2 = state_I & cache2 = state_S & bus = rd : state_S; -- need exclusive check
+    cache2 = state_E & bus = rd : state_S; 
+    cache2 = state_S & bus = rd : state_S;
+    cache2 = state_M & bus = rd : state_S; 
+
+    cache2 = state_I & bus = rdx : state_I; 
+    cache2 = state_S & bus = rdx : state_I; 
+    cache2 = state_E & bus = rdx : state_I; 
+    cache2 = state_M & bus = rdx : state_I; 
+    
+    TRUE : cache2;
+    
+    esac;
+
+    init(cache3) := state_I;
+    next(cache3) := case
+    cache3 = state_I & cpu_op1234 = rd3 : tr_I2SE; -- check E
+    cache3 = tr_I2SE & bus = all_done : state_E;
+    cache3 = tr_I2SE & bus = flush : state_S;
+
+    cache3 = state_I & cpu_op1234 = wr3 : tr_I2M; -- upgrade?
+    cache3 = tr_I2M & bus = all_done : state_M;
+
+    cache3 = state_S & cpu_op1234 = rd3 : state_S;
+    
+    cache3 = state_S & cpu_op1234 = wr3 : tr_S2M; -- upgrade?
+    cache3 = tr_S2M & bus = all_done : state_M;
+
+    cache3 = state_E & bus = rd & !(done3) : state_E; -- rd hit, done self check
+    cache3 = state_E & cpu_op1234 = wr3 : tr_E2M; -- upgrade?
+    cache3 = tr_E2M & bus = all_done : state_M;
+
+    cache3 = state_M & cpu_op1234 = rd3 : state_M;
+    --cache1 = state_M & cpu_op1234 = wr1 : state_M; -- hit
+    cache3 = state_M & bus = rdx & !(done3) : state_M; -- wr hit, done self check
+    cache3 = state_M & bus = rd & !(done3) : state_M; -- rd hit, done self check
+
+    --**********************************************
+
+    -- From here, state transition by bus action
+
+    --cache1 = state_I & cache2 = state_I & bus = rd : state_I; -- need exclusive check
+    --cache1 = state_I & cache2 = state_S & bus = rd : state_S; -- need exclusive check
+    cache3 = state_E & bus = rd : state_S;
+    cache3 = state_S & bus = rd : state_S;
+    cache3 = state_M & bus = rd : state_S;
+
+    cache3 = state_I & bus = rdx : state_I; 
+    cache3 = state_S & bus = rdx : state_I; 
+    cache3 = state_E & bus = rdx : state_I; 
+    cache3 = state_M & bus = rdx : state_I; 
+    
+    TRUE : cache3;
+    esac;
+    
+    init(bus) := none;
+    next(bus) := case
+    --!(bus = none) : none;
+    cpu_op1234 = rd1 | cpu_op1234 = rd2 | cpu_op1234 = rd3 : rd;
+    cpu_op1234 = wr1 | cpu_op1234 = wr2 | cpu_op1234 = wr3 : rdx; -- need rd3 wr3 
+    (cache1 = state_E | cache1 = state_S | cache1 = state_M) & bus = rd & done1 : flush;
+    (cache2 = state_E | cache2 = state_S | cache2 = state_M) & bus = rd & done2 : flush;
+    (cache3 = state_E | cache3 = state_S | cache3 = state_M) & bus = rd & done3 : flush;
+    done1 & done2 & done3 : none;
+    (bus = rd & (done2 & done3)) | (bus = rd & (done1 & done3)) | (bus = rd & (done1 & done2)) : all_done;
+    (bus = rdx & (done2 & done3)) | (bus = rdx & (done1 & done3)) | (bus = rdx & (done1 & done2)) : all_done;
+    --bus = none & (!(done1) & done2 & done3) : none;
+    -- need E & rd
+    --done1 : upgrade;
+    --done2 : upgrade;
+    TRUE : none;
+    esac;
+    
+    init(done1) := TRUE;
+    next(done1) := case
+    (cpu_op1234 = rd1 | cpu_op1234 = wr1) : FALSE;
+    --bus = rdx : FALSE;
+    cache1 = state_M : TRUE;
+    cache1 = state_E : TRUE;
+    cache1 = state_S : TRUE;
+    cache1 = state_I : TRUE;
+    -- need E
+    TRUE : done1;
+    
+    esac;
+            
+    init(done2) := TRUE;
+    next(done2) := case
+    (cpu_op1234 = rd2 | cpu_op1234 = wr2) : FALSE;
+    --bus = rdx : FALSE;
+    cache2 = state_M : TRUE;
+    cache2 = state_E : TRUE;
+    cache2 = state_S : TRUE;
+    cache2 = state_I : TRUE;
+    -- need E
+    TRUE : done2;
+    
+    esac;
+
+    init(done3) := TRUE;
+    next(done3) := case
+    (cpu_op1234 = rd3 | cpu_op1234 = wr3) : FALSE;
+    --bus = rdx : FALSE;
+    cache3 = state_M : TRUE;
+    cache3 = state_E : TRUE;
+    cache3 = state_S : TRUE;
+    cache3 = state_I : TRUE;
+    -- need E
+    TRUE : done3;
+
+    esac;
+
+
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_S) & (cache3 = state_I)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_S) & (cache3 = state_S)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_S) & (cache3 = state_E)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_S) & (cache3 = state_M)))
+
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_E) & (cache3 = state_I)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_E) & (cache3 = state_S)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_E) & (cache3 = state_E)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_E) & (cache3 = state_M)))
+
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_M) & (cache3 = state_I)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_M) & (cache3 = state_S)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_M) & (cache3 = state_E)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_M) & (cache3 = state_M)))
+
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_I) & (cache3 = state_S)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_I) & (cache3 = state_E)))
+    SPEC(AG!((cache1 = state_M) & (cache2 = state_I) & (cache3 = state_M)))

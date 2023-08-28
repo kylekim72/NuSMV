@@ -1,0 +1,28 @@
+MODULE thread(y)
+
+VAR
+  state: {n,t,c,e};
+ASSIGN
+  init(state) := n;
+  next(state) := case
+		  state = n : {n,t};
+		  state = t & y>0 : c;
+		  state = c : {c,e};
+		  state = e : n;
+		  TRUE : state;
+		 esac;
+
+  next(y) := case
+		state = t & y>0 : y - 1;
+		state = e & y=0 : y+1;
+		TRUE : y;
+	     esac;
+MODULE main
+
+VAR
+  y-main: 0..1;
+  pr1: process thread(y-main);
+  pr2: process thread(y-main);
+ASSIGN
+  init(y-main) := 1;
+SPEC AG (pr1.state = e -> AF pr1.state = c)

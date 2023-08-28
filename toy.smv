@@ -1,0 +1,28 @@
+MODULE main
+VAR
+    c0 : integer;
+    c1 : integer;
+    l : {check, decr_c0, decr_c1, end_equal, end_not_equal};
+ASSIGN
+    init(l) := check;
+    next(l) := case
+            l = check & c0 = 0 & c1 = 0 : end_equal;
+            l = check & c0 = 0 & c1 != 0 : end_not_equal;
+            l = check & c0 != 0 & c1 = 0 : end_not_equal;
+            l = check : decr_c0;
+            l = decr_c0 : decr_c1;
+            l = decr_c1 : check;
+            l = end_equal : end_equal;
+            l = end_not_equal : end_not_equal;
+            esac;
+    next(c0) := case
+            l = decr_c0 & c0 > 0 : c0 - 1;
+            TRUE : c0;
+            esac;
+    next(c1) := case
+            l = decr_c1 & c1 > 0 : c1 - 1;
+            TRUE : c1;
+            esac;
+INVAR 
+    c0 >= 0 & c1 >= 0;
+    

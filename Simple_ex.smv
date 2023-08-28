@@ -1,0 +1,6 @@
+MODULE main
+VAR
+    s: boolean;
+TRANS
+    s = TRUE;
+LTLSPEC G s = TRUE
